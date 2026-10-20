@@ -1,0 +1,15 @@
+{
+  ".url": {
+    "DiskLens.Application": {
+      "title": "磁盘瞭望",
+      "icon": "images/disklens_{0}.png",
+      "type": "iframe",
+      "protocol": "",
+      "gatewayPrefix": "/app/DiskLens",
+      "gatewaySocket": "app.sock",
+      "url": "/app/DiskLens/",
+      "allUsers": false,
+      "control": { "accessPerm": "readonly" }
+    }
+  }
+}

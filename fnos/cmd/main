@@ -1,0 +1,57 @@
+#!/bin/bash
+set -eu
+
+APP_NAME="DiskLens"
+APP_DEST="${TRIM_APPDEST:-/var/apps/${APP_NAME}/target}"
+APP_ETC="${TRIM_PKGETC:-/var/apps/${APP_NAME}/etc}"
+APP_VAR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
+BIN="${APP_DEST}/bin/disklens"
+PIDFILE="${APP_ETC}/disklens.pid"
+
+mkdir -p "${APP_ETC}"
+
+is_running() {
+  [ -f "${PIDFILE}" ] || return 1
+  PID="$(cat "${PIDFILE}")"
+  case "${PID}" in ''|*[!0-9]*) return 1 ;; esac
+  kill -0 "${PID}" 2>/dev/null
+}
+
+case "$1" in
+  start)
+    if is_running; then exit 0; fi
+    umask 077
+    mkdir -p "${APP_VAR}/disklens"
+    export TRIM_APPNAME="${TRIM_APPNAME:-DiskLens}"
+    export DISKLENS_SOCKET="${APP_DEST}/app.sock"
+    export DISKLENS_DATA_DIR="${APP_VAR}/disklens"
+    cd "${APP_DEST}"
+    "${BIN}" >>"${APP_ETC}/disklens.log" 2>&1 &
+    echo "$!" >"${PIDFILE}"
+    sleep 1
+    if ! is_running; then
+      echo "DiskLens 启动失败，请检查应用日志。" >"${TRIM_TEMP_LOGFILE:-${APP_ETC}/startup-error.log}"
+      exit 1
+    fi
+    ;;
+  stop)
+    if is_running; then
+      PID="$(cat "${PIDFILE}")"
+      kill "${PID}" 2>/dev/null || true
+      for _ in 1 2 3 4 5; do
+        if ! is_running; then break; fi
+        sleep 1
+      done
+      if is_running; then exit 1; fi
+    fi
+    rm -f "${PIDFILE}"
+    ;;
+  status)
+    if is_running; then exit 0; fi
+    exit 3
+    ;;
+  *)
+    echo "usage: $0 {start|stop|status}" >&2
+    exit 1
+    ;;
+esac

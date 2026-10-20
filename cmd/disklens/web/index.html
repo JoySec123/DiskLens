@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>磁盘瞭望</title>
+  <link rel="icon" href="./assets/app-icon.png">
+  <script src="./shell.js"></script>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><img src="./assets/app-icon.png" width="30" height="30" alt=""><div><h1>磁盘瞭望</h1><span>DiskLens</span></div></div>
+      <nav aria-label="应用导航">
+        <button class="nav-item active" data-view="overview" aria-current="page"><img src="./assets/layout-grid.svg" alt="">概览</button>
+        <button class="nav-item" data-view="directories"><img src="./assets/folders.svg" alt="">目录分析</button>
+        <button class="nav-item" data-view="types"><img src="./assets/chart-pie.svg" alt="">文件类型</button>
+        <button class="nav-item" data-view="files"><img src="./assets/file-search.svg" alt="">大文件</button>
+        <button class="nav-item" data-view="duplicates"><img src="./assets/files.svg" alt="">重复文件</button>
+        <button class="nav-item" data-view="history"><img src="./assets/history.svg" alt="">扫描记录</button>
+        <button class="nav-item" data-view="ledger"><img src="./assets/chart-no-axes-combined.svg" alt="">空间账单</button>
+        <button class="nav-item" data-view="alerts"><img src="./assets/bell.svg" alt="">提醒<span id="alertCount" class="nav-count" hidden></span></button>
+        <button class="nav-item" data-view="settings"><img src="./assets/calendar-clock.svg" alt="">巡检设置</button>
+      </nav>
+      <div class="sidebar-foot"><span class="version">v0.3.3</span><span id="connection">连接中</span></div>
+    </aside>
+    <main class="workspace">
+      <header class="workspace-header"><h2 id="viewTitle">概览</h2><span class="status" id="status" role="status">准备就绪</span></header>
+      <section class="scan-toolbar" aria-label="扫描任务">
+        <div class="root-field"><label for="root">授权目录</label><select id="root" disabled><option value="">正在读取目录</option></select></div>
+        <button id="scope" class="secondary" disabled><img src="./assets/sliders-horizontal.svg" alt=""><span id="scopeLabel">扫描范围</span></button>
+        <button id="refresh" class="icon-button" title="刷新授权目录" aria-label="刷新授权目录"><img src="./assets/refresh-cw.svg" alt=""></button>
+        <button id="scan" class="primary" disabled><img src="./assets/scan-line.svg" alt=""><span>开始扫描</span></button>
+        <button id="cancel" class="secondary" hidden><img src="./assets/square.svg" alt="">停止扫描</button>
+      </section>
+      <p id="hint" class="hint" aria-live="polite"></p>
+      <div id="progress" class="scan-progress" hidden><span></span></div>
+      <section class="summary" aria-label="扫描统计">
+        <div class="summary-identity"><img src="./assets/app-icon.png" alt="" width="40" height="40"><div><span>分析目录</span><strong id="rootSummary" title="">未选择目录</strong></div></div>
+        <div class="metric"><strong id="totalBytes">--</strong><span>文件逻辑大小</span></div>
+        <div class="metric"><strong id="fileCount">--</strong><span>文件数</span></div>
+        <div class="metric"><strong id="dirCount">--</strong><span>目录数</span></div>
+        <div class="metric"><strong id="duration">--</strong><span>扫描耗时</span></div>
+      </section>
+
+      <section class="view" id="view-overview" aria-label="概览">
+        <section class="data-section capacity-section"><header><h3>存储容量</h3><span class="subtle">文件系统容量</span></header><div id="volumes"></div></section>
+        <div class="overview-grid">
+          <section class="data-section"><header><h3>目录空间分布</h3><button class="text-button" data-open="directories">全部目录<img src="./assets/chevron-right.svg" alt=""></button></header><div id="overview-dirs" class="bars"></div></section>
+          <section class="data-section"><header><h3>文件类型分布</h3><button class="text-button" data-open="types">全部类型<img src="./assets/chevron-right.svg" alt=""></button></header><div id="overview-types" class="bars"></div></section>
+        </div>
+        <section class="data-section"><header><h3>大文件排行</h3><button class="text-button" data-open="files">全部大文件<img src="./assets/chevron-right.svg" alt=""></button></header><div id="overview-files" class="table-wrap"></div></section>
+      </section>
+      <section class="view" id="view-directories" aria-label="目录分析" hidden><section class="data-section"><header><nav id="breadcrumbs" class="breadcrumbs" aria-label="目录路径"></nav><button id="dirUp" class="icon-button" title="上一级" aria-label="上一级"><img src="./assets/arrow-up.svg" alt=""></button></header><div id="dirs" class="table-wrap"></div><div id="dirPager" class="pager"></div></section></section>
+      <section class="view" id="view-types" aria-label="文件类型" hidden><section class="data-section"><header><h3>类型统计</h3><span class="subtle">按大小排序</span></header><div id="types" class="bars detail-bars"></div></section></section>
+      <section class="view" id="view-files" aria-label="大文件" hidden><section class="data-section">
+        <header class="files-header"><h3>文件列表 <span id="fileTotal" class="subtle"></span></h3><div class="file-actions"><button id="advancedToggle" class="icon-button" title="更多筛选" aria-label="更多筛选" aria-expanded="false" aria-controls="advancedFilters"><img src="./assets/sliders-horizontal.svg" alt=""></button><button id="export" class="icon-button" title="导出当前筛选 CSV" aria-label="导出当前筛选 CSV" disabled><img src="./assets/download.svg" alt=""></button></div></header>
+        <form id="filters" class="filters">
+          <div class="search-field"><img src="./assets/search.svg" alt=""><input id="fileSearch" name="q" type="search" placeholder="文件名或路径" aria-label="搜索大文件"></div>
+          <select id="fileCategory" name="category" aria-label="文件类型"><option value="">全部类型</option><option>视频</option><option>图片</option><option>音频</option><option>压缩包</option><option>镜像</option><option>文档</option><option>日志</option><option>数据库</option><option>其他</option></select>
+          <input name="ext" aria-label="扩展名" placeholder="扩展名：iso,zip">
+          <div id="advancedFilters" class="advanced-filters" hidden>
+          <label>最小 MB<input name="min" type="number" min="0" step="any" aria-label="最小大小 MB"></label>
+          <label>最大 MB<input name="max" type="number" min="0" step="any" aria-label="最大大小 MB"></label>
+          <label>修改自<input name="since" type="date" aria-label="修改开始日期"></label>
+          <label>修改至<input name="until" type="date" aria-label="修改结束日期"></label>
+          <select name="sort" aria-label="排序字段"><option value="size">大小</option><option value="name">名称</option><option value="modified">修改时间</option><option value="path">路径</option></select>
+          <select name="order" aria-label="排序方向"><option value="desc">降序</option><option value="asc">升序</option></select>
+          <button type="reset" class="icon-button" title="重置筛选" aria-label="重置筛选"><img src="./assets/x.svg" alt=""></button>
+          </div>
+        </form>
+        <div id="files" class="table-wrap"></div><div id="filePager" class="pager"></div>
+      </section></section>
+      <section class="view" id="view-history" aria-label="扫描记录" hidden>
+        <section class="data-section"><header><h3>扫描记录</h3><span class="subtle">最近 20 次</span></header><div id="history" class="table-wrap"></div></section>
+        <section class="data-section compare-section"><header><h3>空间变化</h3></header><form id="compareForm" class="compare-toolbar"><label>基准<select id="compareBefore" aria-label="基准扫描"></select></label><label>对比<select id="compareAfter" aria-label="对比扫描"></select></label><button type="submit" class="secondary" id="compareButton"><img src="./assets/git-compare-arrows.svg" alt="">对比</button></form><div id="compareSummary" class="comparison-summary"></div><div id="growth"></div><div id="changes" class="table-wrap"></div><div id="comparePager" class="pager"></div></section>
+      </section>
+      <section class="view" id="view-duplicates" aria-label="重复文件" hidden>
+        <section class="data-section"><header><h3>内容相同的文件</h3><span class="subtle">只读检测</span></header>
+          <div class="duplicate-toolbar"><label>最小 MB<input id="duplicateMin" type="number" value="1" min="0" step="any"></label><label>读取上限<select id="duplicateRate"><option value="8">8 MB/s</option><option value="32" selected>32 MB/s</option><option value="64">64 MB/s</option><option value="128">128 MB/s</option></select></label><button id="duplicateStart" class="primary" disabled><img src="./assets/scan-line.svg" alt="">开始检测</button><button id="duplicateStop" class="secondary" hidden><img src="./assets/square.svg" alt="">停止检测</button></div>
+          <p id="duplicateStatus" class="hint" aria-live="polite">暂无检测记录</p><div id="duplicateSummary" class="comparison-summary"></div><div id="duplicates"></div><div id="duplicatePager" class="pager"></div>
+        </section>
+      </section>
+      <section class="view" id="view-ledger" aria-label="空间账单" hidden>
+        <section class="data-section"><header><h3>空间变化账单</h3><span class="subtle">文件逻辑大小</span></header>
+          <div class="ledger-selectors"><label>扫描范围<select id="ledgerScope" aria-label="账单扫描范围"></select></label><label>当前账单<select id="ledgerAfter" aria-label="当前账单"></select></label><label>基准账单<select id="ledgerBefore" aria-label="基准账单"></select></label></div>
+          <div id="ledgerTotals" class="ledger-totals"></div><p id="ledgerCoverage" class="hint"></p>
+          <div id="ledgerTrend" class="ledger-trend" aria-label="近期文件大小趋势"></div>
+          <div id="ledgerChanges" class="table-wrap"></div><p id="ledgerLimit" class="hint"></p>
+        </section>
+        <section class="data-section ledger-section"><header><h3>类型变化</h3></header><div id="ledgerCategories" class="table-wrap"></div></section>
+        <section class="data-section ledger-section"><header><h3>容量记录</h3><span id="ledgerCapacityAt" class="subtle"></span></header><div id="ledgerCapacity"></div></section>
+      </section>
+      <section class="view" id="view-alerts" aria-label="提醒" hidden><section class="data-section"><header><h3>巡检提醒</h3><span id="alertSummary" class="subtle"></span></header><div id="alerts"></div><div id="alertPager" class="pager"></div></section></section>
+      <section class="view" id="view-settings" aria-label="巡检设置" hidden>
+        <form id="inspectionForm">
+          <section class="data-section settings-section"><header><h3>定时扫描</h3><label class="check-label"><input id="scheduleEnabled" type="checkbox">启用</label></header>
+            <div class="settings-grid"><label>每天开始时间<input id="scheduleAt" type="time" required value="03:00"></label><label>时区<input id="scheduleZone" required value="Asia/Shanghai" list="timezones"></label></div>
+            <datalist id="timezones"><option value="Asia/Shanghai"><option value="Asia/Hong_Kong"><option value="Asia/Tokyo"><option value="UTC"><option value="Europe/London"><option value="America/New_York"></datalist>
+            <p id="scheduleStatus" class="hint"></p><div id="scheduleRoots" class="root-checks"></div><label class="exclude-field">排除规则<textarea id="scheduleExcludes" rows="3"></textarea></label>
+          </section>
+          <section class="data-section settings-section"><header><h3>扫描负载</h3><span class="subtle">手动与定时扫描</span></header>
+            <div class="settings-grid"><label>目录项处理上限<select id="scanRate"><option value="128">128 项/秒</option><option value="512" selected>512 项/秒</option><option value="2048">2048 项/秒</option><option value="10000">10000 项/秒</option><option value="0">不限速</option></select></label><label>最长扫描时间（分钟）<input id="scanTimeout" type="number" min="1" max="1440" required value="360"></label></div>
+          </section>
+          <section class="data-section settings-section"><header><h3>提醒阈值</h3><span class="subtle">应用内提醒</span></header>
+            <label class="check-label"><input id="growthEnabled" type="checkbox" checked>空间增长</label><div class="settings-grid"><label>增长量至少（GB）<input id="growthGB" type="number" min="0.000001" max="1048576" step="any" required value="10"></label><label>且增长率至少（%）<input id="growthPercent" type="number" min="0" max="10000" required value="20"></label></div>
+            <label class="check-label"><input id="freeEnabled" type="checkbox" checked>可用容量不足</label><div class="settings-grid"><label>可用比例不高于（%）<input id="freePercent" type="number" min="1" max="99" required value="10"></label></div>
+          </section>
+          <div class="settings-actions"><button id="saveInspection" type="submit" class="primary"><img src="./assets/save.svg" alt="">保存设置</button><span id="settingsMessage" class="hint" role="status"></span></div>
+        </form>
+      </section>
+      <footer class="workspace-foot"><span id="scanTime">暂无扫描记录</span><span id="skipped"></span></footer>
+    </main>
+  </div>
+  <dialog id="scopeDialog" aria-labelledby="scopeTitle"><form id="scopeForm"><header class="dialog-header"><h3 id="scopeTitle">扫描范围</h3><button type="button" data-close="scopeDialog" class="icon-button" aria-label="关闭" title="关闭"><img src="./assets/x.svg" alt=""></button></header><div id="rootChecks" class="root-checks"></div><label class="exclude-field">排除规则<textarea id="excludes" rows="5" placeholder="@recycle&#10;.snapshot&#10;*.tmp"></textarea></label><p id="scopeError" class="hint error"></p><footer class="dialog-footer"><button type="button" class="secondary" data-close="scopeDialog">取消</button><button type="submit" class="primary">应用</button></footer></form></dialog>
+  <dialog id="pathsDialog" aria-labelledby="pathsTitle"><header class="dialog-header"><h3 id="pathsTitle">重复文件路径</h3><button data-close="pathsDialog" class="icon-button" aria-label="关闭" title="关闭"><img src="./assets/x.svg" alt=""></button></header><div id="duplicatePaths"></div><div id="pathsPager" class="pager"></div></dialog>
+  <dialog id="copyDialog" aria-labelledby="copyTitle"><header class="dialog-header"><h3 id="copyTitle">文件路径</h3><button data-close="copyDialog" class="icon-button" aria-label="关闭" title="关闭"><img src="./assets/x.svg" alt=""></button></header><input id="copyValue" readonly aria-label="文件绝对路径"></dialog>
+  <script src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "name": "disklens-dev",
+  "private": true,
+  "type": "module",
+  "scripts": { "assets": "node scripts/build-assets.mjs", "test:ui": "node scripts/test-ui.mjs", "test:gateway": "node scripts/test-gateway-ui.mjs" },
+  "devDependencies": { "lucide-static": "^0.468.0", "playwright": "^1.56.0" }
+}

@@ -1,0 +1,12 @@
+appname="DiskLens"
+version="0.3.3"
+display_name="磁盘瞭望"
+desc="只读分析目录与重复文件，记录空间账单，定时巡检并提醒空间变化。"
+maintainer="DiskLens Team"
+source="thirdparty"
+platform="x86"
+ctl_stop=true
+checkport=false
+desktop_uidir="ui"
+desktop_applaunchname="DiskLens.Application"
+changelog="新增长期空间账单、低干扰定时扫描、增长与容量提醒，支持扫描速率及超时设置；嵌入飞牛窗口时不再重复显示应用标题。"
